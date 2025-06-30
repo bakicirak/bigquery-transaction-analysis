@@ -64,7 +64,7 @@ The dataset assumed in all queries includes at least the following fields:
 
 ## 🗂 Structure
 
-Each SQL file in the `/sql` folder corresponds to one of the above questions. You can copy and run each query directly in the BigQuery console using Standard SQL.
+You can copy and run each query directly in the BigQuery console using Standard SQL.
 
 ```bash
 ├── bigquery-transaction-analysis.sql

@@ -1,70 +1,30 @@
-# 🧾 BigQuery Transaction Data Analysis
+# Transaction Log Analysis in BigQuery: Demand, Timing & Basket Behaviour
 
-This repository contains a comprehensive collection of BigQuery SQL scripts designed to analyze transactional data at multiple levels — temporal patterns, product behavior, co-purchases, inactivity, and trends over time.
+**Business question:** From a raw transaction log (`transaction_id`, `product_id`, `time`), what can we learn about **when** customers buy, **what** they buy, **what they buy together**, and whether the data pipeline itself is healthy?
 
-The dataset assumed in all queries includes at least the following fields:
+This project shows how to get product and customer insights from a minimal event table in SQL alone. The same pattern applies to product usage logs (feature events instead of products). The queries are built as a reusable layer that a BI dashboard (Power BI, Looker Studio) can sit on.
 
-- `transaction_id`
-- `product_id`
-- `time` (as a TIMESTAMP)
+**Stack:** BigQuery Standard SQL · window functions (`LAG`, `ROW_NUMBER`) · `APPROX_QUANTILES` · market-basket metrics (support, confidence, lift)
 
 ---
 
-## 🔍 Questions Answered
+## Analysis modules
 
-1. **How many transactions occur per day?**  
-   Determine daily transaction volume to identify active and inactive days.
+| Module | Queries | Business use |
+|---|---|---|
+| **Volume & timing** | Q1–Q3 daily volume, hourly peaks, part of day | Staffing, campaign timing, capacity planning |
+| **Monitoring** | Q4 anomaly days (z-score), Q5 time between transactions (mean, median, P95), Q6 longest silent periods | Alerting on outages or tracking breaks before they reach reports |
+| **Product performance** | Q7 penetration, Q8 daily trend, Q9 month-over-month growth, Q10 lifecycle | Find rising and declining products for assortment and prioritisation |
+| **Repeat behaviour** | Q11 repeat-purchase interval, Q12 time to second purchase | Replenishment reminders, early traction of new products |
+| **Basket analysis** | Q13 basket-size distribution, Q14 product pairs with support, confidence and lift | Cross-sell, bundles, recommendations |
 
-2. **Are there specific times of day when transactions peak?**  
-   Extract hourly transaction data to detect traffic peaks (e.g. morning, evening).
+## Design decisions
 
-3. **Which products are involved in the most transactions?**  
-   Rank products based on how frequently they appear in transactions.
+- **Correct grain.** One row in the table is one *product line*, not one transaction. Volume KPIs use `COUNT(DISTINCT transaction_id)`. Gap and interval metrics are computed on one row per transaction, because otherwise lines of the same basket create false 0-minute gaps.
+- **Lift, not raw pair counts.** Popular products appear together often just because they are popular. Lift > 1 shows pairs that occur together *more than expected*, which is the signal you can act on for cross-selling.
+- **Medians and P95 next to averages.** Time-between-transactions is skewed, so a single mean hides outages.
+- **Month-over-month growth with `SAFE_DIVIDE`** avoids divide-by-zero errors for new products.
 
-4. **Which product pairs are frequently purchased together, and how often?**  
-   Analyze co-occurrence of product pairs within the same transaction.
+## How to run
 
-5. **How has the transaction volume for each product changed over time?**  
-   Monitor product trends and demand changes day by day.
-
-6. **What’s the average time between transactions?**  
-   Measure the average duration (in minutes) between consecutive transactions.
-
-7. **Are there downtimes or inactive periods in transactions?**  
-   Identify unusually long gaps between transaction timestamps.
-
-8. **When was each product first and last involved in a transaction?**  
-   Capture the first and last usage of each product across the dataset.
-
-9. **Are there days with unusually high or low numbers of transactions?**  
-   Detect anomalies by comparing daily transaction volumes against average and standard deviation.
-
-10. **What is the reorder interval (in days) for each product?**  
-    Calculate how frequently a product is reordered over time.
-
-11. **What is the average number of unique products per transaction?**  
-    Understand basket size and diversity by counting unique products in each transaction.
-
-12. **Identify time gaps between transactions that may indicate system downtime or inactivity.**  
-    List long periods of transactional silence using hourly gaps.
-
-13. **What are the most popular product purchase sequences?**  
-    Uncover frequent item-to-item transitions within transactions.
-
-14. **Which products are gaining or losing popularity over time?**  
-    Track month-over-month changes in product purchase frequency.
-
-15. **Cluster transactions based on their time of day.**  
-    Classify transactions into Morning, Afternoon, Evening, or Night buckets.
-
-16. **Detect first-time appearances of each product and how long it took for the next purchase.**  
-    Evaluate how soon a product is purchased again after its introduction.
-
----
-
-## 🗂 Structure
-
-You can copy and run each query directly in the BigQuery console using Standard SQL.
-
-```bash
-├── bigquery-transaction-analysis.sql
+Each query in [`bigquery-transaction-analysis.sql`](bigquery-transaction-analysis.sql) runs on its own in the BigQuery console. To use your own data, replace `main-data-hub.transaction_data.core_table` with any table that has `transaction_id`, `product_id` and a `TIMESTAMP` column named `time`.
